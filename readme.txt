@@ -1,6 +1,6 @@
 === OderoPay - WC Gateway ===
 Contributors: oderopay, bencagri
-Stable tag: Version: 1.2.4
+Stable tag: Version: 1.2.5
 Requires at least: 6.0
 Requires PHP: 7.2+
 Tested up to: 6.6

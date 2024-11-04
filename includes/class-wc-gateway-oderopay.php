@@ -508,7 +508,7 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
         ;
 
 		$payload = $paymentRequest->toArray();
-		$this->log(json_encode($payload), WC_Log_Levels::INFO);
+		$this->log('Odero Payload: '.json_encode($payload), WC_Log_Levels::INFO);
 
         $payment = $this->odero->payments->create($paymentRequest); //PaymentIntentResponse
 
@@ -518,9 +518,7 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
         if($payment->isSuccess()){
             //save the odero payment id
             $order->add_meta_data(self::ODERO_PAYMENT_KEY, $payment->data['paymentId']);
-
-            //set odero payment id for future use
-            update_post_meta( $order->get_id(), self::ODERO_PAYMENT_KEY, $payment->data['paymentId'] );
+            $order->save();
 
             //log the order
             $this->log_order_details($order);
@@ -565,27 +563,12 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
             case $message instanceof \Oderopay\Model\Webhook\Payment:
                 /** @var  \Oderopay\Model\Webhook\Payment $message */
                 $data = $message->getData();
-                $paymentId = sanitize_text_field($data['paymentId']);
+                $wcOrderId = sanitize_text_field($data['extOrderId']);
 
-                //find order with payment id
-                $findOrderArgs = array(
-                    'post_type' => 'shop_order',
-                    'post_status' => array_keys(wc_get_order_statuses()),
-                    'meta_query' => array(
-                        'meta_value' => array(
-                            'key' => self::ODERO_PAYMENT_KEY,
-                            'value' => $paymentId,
-                            'compare' => '==',
-                        )
-                    )
-                );
+				/** @var WC_Order $order */
+                $order = wc_get_order($wcOrderId);
 
-                $orders =  new WP_Query($findOrderArgs);
-
-                if(empty($orders->posts)) return;
-
-                /** @var WC_Order $order */
-                $order = wc_get_order($orders->posts[0]->ID);
+                if(empty($order)) return;
 
                 if($order->get_payment_method() !== 'oderopay') {
                     $this->log('Callback Received but skipped');
@@ -597,10 +580,13 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
                     $order->update_status($this->get_option('status_on_success'), __( 'Payment Success', 'woocommerce' ));
                     //reduce stocks
                     wc_reduce_stock_levels( $order->get_id() );
+                    $this->log('Order Update (Success) : '. json_encode($order), WC_Log_Levels::NOTICE);
+
                 }else{
                     // set status failed
                     $order->update_status($this->get_option('status_on_failed'), __( 'Payment failed', 'woocommerce' ));
-                    $this->log_order_details($order, WC_Log_Levels::ERROR);
+                    $this->log('Order Update (Status) :  '. $this->get_option('status_on_failed'));
+                    $this->log('Order Update (Failed) : '. json_encode($order), WC_Log_Levels::ERROR);
                 }
 
                 break;
