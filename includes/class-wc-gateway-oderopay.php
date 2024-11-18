@@ -1,9 +1,5 @@
 <?php
-
-if (version_compare(phpversion(), '7.1', '>=')) {
-	ini_set( 'precision', 17 );
-	ini_set( 'serialize_precision', -1 );
-}
+if ( ! defined( 'ABSPATH' ) ) exit;
 
 use Oderopay\OderoConfig;
 
@@ -82,7 +78,7 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
 		$this->id = 'oderopay';
 		$this->method_title       = __( 'OderoPay', 'wc-gateway-oderopay' );
 		/* translators: 1: a href link 2: closing href */
-		$this->method_description = sprintf( __( 'OderoPay works by sending the user to %1$sOderoPay%2$s to enter their payment information.', 'wc-gateway-oderopay' ), '<a href="http://odero.ro/">', '</a>' );
+		$this->method_description = __( 'OderoPay works by sending the user to OderoPay to enter their payment information.', 'wc-gateway-oderopay' );
 		$this->icon               = WP_PLUGIN_URL . '/' . plugin_basename( dirname( dirname( __FILE__ ) ) ) . '/assets/images/icon.png';
 		$this->debug_email        = get_option( 'admin_email' );
 		$this->available_currencies = (array) apply_filters('woocommerce_gateway_oderopay_available_currencies', array( 'RON', 'EUR' ) );
@@ -121,6 +117,22 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
 		add_action( 'woocommerce_receipt_oderopay', array( $this, 'receipt_page' ) );
 		add_action( 'admin_notices', array( $this, 'admin_notices' ) );
 
+
+        #add route for check odero payment
+		add_action( 'rest_api_init', function() {
+			register_rest_route(
+				'wc',
+				'/odero/(?P<id>[a-zA-Z0-9-]+)/verify/',
+				[
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => [$this, 'verify_odero_payment'],
+					'permission_callback' => function(){
+						return true;
+					}
+				]
+			);
+		});
+
         $merchantId     = !$this->sandbox ? $this->merchant_id : $this->merchant_id_sandbox;
         $merchantToken  = !$this->sandbox ? $this->merchant_token : $this->merchant_token_sandbox;
 
@@ -145,134 +157,147 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
 
 		$this->form_fields = array(
 			'enabled' => array(
-				'title'       => __( 'Enable/Disable', 'wc-gateway-oderopay' ),
-				'label'       => __( 'Enable OderoPay', 'wc-gateway-oderopay' ),
+				'title'       => esc_attr__( 'Enable/Disable', 'wc-gateway-oderopay' ),
+				'label'       => esc_attr__( 'Enable OderoPay', 'wc-gateway-oderopay' ),
 				'type'        => 'checkbox',
-				'description' => __( 'This controls whether or not this gateway is enabled within WooCommerce.', 'wc-gateway-oderopay' ),
+				'description' => esc_attr__( 'This controls whether or not this gateway is enabled within WooCommerce.', 'wc-gateway-oderopay' ),
 				'default'     => 'yes',
 				'desc_tip'    => true,
 			),
             'title' => array(
-                'title'       => __( 'Title', 'wc-gateway-oderopay' ),
+                'title'       => esc_attr__( 'Title', 'wc-gateway-oderopay' ),
                 'type'        => 'text',
-                'description' => __( 'This controls the title which the user sees during checkout.', 'wc-gateway-oderopay' ),
-                'default'     => __( 'OderoPay', 'wc-gateway-oderopay' ),
+                'description' => esc_attr__( 'This controls the title which the user sees during checkout.', 'wc-gateway-oderopay' ),
+                'default'     => esc_attr__( 'OderoPay', 'wc-gateway-oderopay' ),
                 'desc_tip'    => true,
             ),
             'description' => array(
-                'title'       => __( 'Description', 'wc-gateway-oderopay' ),
+                'title'       => esc_attr__( 'Description', 'wc-gateway-oderopay' ),
                 'type'        => 'text',
-                'description' => __( 'This controls the description which the user sees during checkout.', 'wc-gateway-oderopay' ),
+                'description' => esc_attr__( 'This controls the description which the user sees during checkout.', 'wc-gateway-oderopay' ),
                 'default'     => '',
                 'desc_tip'    => true,
             ),
 
 			'merchant_name' => array(
-				'title'       => __( 'Merchant Name', 'wc-gateway-oderopay' ),
+				'title'       => esc_attr__( 'Merchant Name', 'wc-gateway-oderopay' ),
 				'type'        => 'text',
-				'description' => __( 'This is the merchant name, mostly your default store name.', 'wc-gateway-oderopay' ),
+				'description' => esc_attr__( 'This is the merchant name, mostly your default store name.', 'wc-gateway-oderopay' ),
 				'default'     => get_bloginfo( 'name' ),
 			),
 
             'merchant_id' => array(
-				'title'       => __( 'Merchant ID', 'wc-gateway-oderopay' ),
+				'title'       => esc_attr__( 'Merchant ID', 'wc-gateway-oderopay' ),
 				'type'        => 'text',
-				'description' => __( 'This is the merchant ID, received from OderoPay.', 'wc-gateway-oderopay' ),
+				'description' => esc_attr__( 'This is the merchant ID, received from OderoPay.', 'wc-gateway-oderopay' ),
 				'default'     => '',
 			),
 
 			'merchant_token' => array(
-				'title'       => __( 'Merchant Token', 'wc-gateway-oderopay' ),
+				'title'       => esc_attr__( 'Merchant Token', 'wc-gateway-oderopay' ),
 				'type'        => 'text',
-				'description' => __( 'This is the merchant token, received from OderoPay.', 'wc-gateway-oderopay' ),
+				'description' => esc_attr__( 'This is the merchant token, received from OderoPay.', 'wc-gateway-oderopay' ),
 				'default'     => '',
 			),
 
             'sandbox' => array(
-                'title'       => __( 'OderoPay Sandbox', 'wc-gateway-oderopay' ),
+                'title'       => esc_attr__( 'OderoPay Sandbox', 'wc-gateway-oderopay' ),
                 'type'        => 'checkbox',
-                'description' => __( 'Place the payment gateway in development mode.', 'wc-gateway-oderopay' ),
+                'description' => esc_attr__( 'Place the payment gateway in development mode.', 'wc-gateway-oderopay' ),
                 'default'     => true,
             ),
 
             'merchant_id_sandbox' => array(
-				'title'       => __( 'Merchant ID (Sandbox)', 'wc-gateway-oderopay' ),
+				'title'       => esc_attr__( 'Merchant ID (Sandbox)', 'wc-gateway-oderopay' ),
 				'type'        => 'text',
-				'description' => __( 'This is the merchant ID (sandbox), received from OderoPay.', 'wc-gateway-oderopay' ),
+				'description' => esc_attr__( 'This is the merchant ID (sandbox), received from OderoPay.', 'wc-gateway-oderopay' ),
 				'default'     => '',
 			),
 
 			'merchant_token_sandbox' => array(
-				'title'       => __( 'Merchant Token (sandbox)', 'wc-gateway-oderopay' ),
+				'title'       => esc_attr__( 'Merchant Token (sandbox)', 'wc-gateway-oderopay' ),
 				'type'        => 'text',
-				'description' => __( 'This is the merchant token (sandbox), received from OderoPay.', 'wc-gateway-oderopay' ),
+				'description' => esc_attr__( 'This is the merchant token (sandbox), received from OderoPay.', 'wc-gateway-oderopay' ),
 				'default'     => '',
 			),
 
             'status_settings' => array(
-                'title'       => __( 'Order Status Settings', 'wc-gateway-oderopay' ),
+                'title'       => esc_attr__( 'Order Status Settings', 'wc-gateway-oderopay' ),
                 'type'        => 'title',
-                'description' => __( 'Please Set the default order status', 'wc-gateway-oderopay' ),
+                'description' => esc_attr__( 'Please Set the default order status', 'wc-gateway-oderopay' ),
             ),
 
             'status_on_process' => array(
-                'title'       => __( 'Status On Process', 'wc-gateway-oderopay' ),
+                'title'       => esc_attr__( 'Status On Process', 'wc-gateway-oderopay' ),
                 'type'        => 'select',
                 'options'      => $statuses,
                 'default'      => $this->get_option('status_on_process') ?? 'wc-on-hold',
-                'description' => __( 'This status is set when customer is redirected to Odero Payment Page', 'wc-gateway-oderopay' ),
+                'description' => esc_attr__( 'This status is set when customer is redirected to Odero Payment Page', 'wc-gateway-oderopay' ),
             ),
 
             'status_on_failed' => array(
-                'title'       => __( 'On Payment Failed', 'wc-gateway-oderopay' ),
+                'title'       => esc_attr__( 'On Payment Failed', 'wc-gateway-oderopay' ),
                 'type'        => 'select',
                 'options'      => $statuses,
                 'default'      => $this->get_option('status_on_failed') ?? 'wc-failed',
-                'description' => __( 'This status is set when payment is failed', 'wc-gateway-oderopay' ),
+                'description' => esc_attr__( 'This status is set when payment is failed', 'wc-gateway-oderopay' ),
             ),
 
             'status_on_success' => array(
-                'title'       => __( 'On Payment Success', 'wc-gateway-oderopay' ),
+                'title'       => esc_attr__( 'On Payment Success', 'wc-gateway-oderopay' ),
                 'type'        => 'select',
                 'options'      => $statuses,
                 'default'      => $this->get_option('status_on_success') ?? 'wc-processing',
-                'description' => __( 'This status is set when payment is success', 'wc-gateway-oderopay' ),
+                'description' => esc_attr__( 'This status is set when payment is success', 'wc-gateway-oderopay' ),
             ),
 
             'secret_key' => array(
-                'title'       => __( 'Secret Key', 'wc-gateway-oderopay' ),
+                'title'       => esc_attr__( 'Secret Key', 'wc-gateway-oderopay' ),
                 'type'        => 'text',
-                'description' => __( 'Please set a random passphrase', 'wc-gateway-oderopay' ),
+                'description' => esc_attr__( 'Please set a random passphrase', 'wc-gateway-oderopay' ),
             ),
 
             'webhook_url' => array(
-                'title'       => __( 'Webhook Url', 'wc-gateway-oderopay' ),
+                'title'       => esc_attr__( 'Webhook Url', 'wc-gateway-oderopay' ),
                 'type'        => 'title',
-                'description' => __( sprintf('Please ensure that you have this endpoint on Odero Merchant Settings: <br> <b>%s?wc-api=ODEROPAY&secret_key=%s</b>', $webhookUrl, $this->get_option('secret_key')), 'wc-gateway-oderopay' ),
+                'description' => /* translators: 1: webhook url 2: secret key */ wp_sprintf( esc_attr__('Please ensure that you have this endpoint on Odero Merchant Settings: %1$s?wc-api=ODEROPAY&secret_key=%2$s', 'wc-gateway-oderopay'), $webhookUrl, $this->get_option('secret_key')),
             ),
 
 			'enable_logging' => array(
-				'title'   => __( 'Enable Logging', 'wc-gateway-oderopay' ),
+				'title'   => esc_attr__( 'Enable Logging', 'wc-gateway-oderopay' ),
 				'type'    => 'checkbox',
-				'label'   => __( 'Enable transaction logging for gateway.', 'wc-gateway-oderopay' ),
+				'label'   => esc_attr__( 'Enable transaction logging for gateway.', 'wc-gateway-oderopay' ),
 				'default' => false,
 			),
 
 		);
 	}
 
-	/**
-	 * Get the required form field keys for setup.
-	 *
-	 * @return array
-	 */
-	public function get_required_settings_keys()
-    {
-		return array(
-			'merchant_id',
-			'merchant_token',
-		);
+	public function verify_odero_payment(WP_REST_Request $data)
+	{
+        $params = $data->get_params();
+
+        $order_id = $params['id'];
+
+        if (!$order_id){
+            throw new InvalidArgumentException('order id is required');
+        }
+
+		/** @var WC_Order $order */
+		$order = wc_get_order(sanitize_text_field($params['id']));
+
+        $oderoPaymentId = $order->get_meta(self::ODERO_PAYMENT_KEY);
+
+        $payment = $this->odero->payments->get($oderoPaymentId);
+
+        $this->log('ORDER UPDATE ON REDIRECT, ODERO PAYMENT: ' . $payment->toJSON());
+        $this->update_order_by_odero_status($order, $payment->getStatus());
+
+        //redirect to order
+		wp_redirect( $order->get_view_order_url() );
+		exit;
 	}
+
 
 	/**
 	 * Determine if the gateway still requires setup.
@@ -338,24 +363,15 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
 			parent::admin_options();
 		} else {
 		?>
-			<h3><?php _e( 'OderoPay', 'wc-gateway-oderopay' ); ?></h3>
-			<div class="inline error"><p><strong><?php _e( 'Gateway Disabled', 'wc-gateway-oderopay' ); ?></strong> <?php /* translators: 1: a href link 2: closing href */ echo sprintf( __( 'Choose RON, EUR or USD as your store currency in %1$sGeneral Settings%2$s to enable the OderoPay Gateway.', 'wc-gateway-oderopay' ), '<a href="' . esc_url( admin_url( 'admin.php?page=wc-settings&tab=general' ) ) . '">', '</a>' ); ?></p></div>
+			<h3><?php esc_attr_e( 'OderoPay', 'wc-gateway-oderopay' ); ?></h3>
+			<div class="inline error">
+                <p>
+                    <strong><?php esc_attr_e( 'Gateway Disabled', 'wc-gateway-oderopay' ); ?></strong>
+                    <?php /* translators: 1: a href link 2: closing href */ echo wp_sprintf( esc_html__( 'Choose RON, EUR or USD as your store currency in %1$sGeneral Settings%2$s to enable the OderoPay Gateway.', 'wc-gateway-oderopay' ), '<a href="' . esc_url( admin_url( 'admin.php?page=wc-settings&tab=general' ) ) . '">', '</a>' ); ?>
+                </p>
+            </div>
 			<?php
 		}
-	}
-
-	public function getCartSummary() {
-		$cartArr = WC()->cart->get_cart();
-		$i = 0;
-		$cartSummary = array();
-		foreach ($cartArr as $key => $value ) {
-			$cartSummary[$i]['name'] 				=  $value['data']->get_name();
-			$cartSummary[$i]['price'] 			=  $value['data']->get_price();
-			$cartSummary[$i]['quantity'] 			=  $value['quantity'];
-			$cartSummary[$i]['short_description'] =  substr($value['data']->get_short_description(), 0, 100);
-			$i++;
-		}
-		return json_encode($cartSummary);
 	}
 
 	/**
@@ -365,8 +381,6 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
 	 */
 	public function process_payment( $order_id )
     {
-        global $woocommerce;
-
         /** @var WC_Order $order */
         $order         = wc_get_order( $order_id );
 
@@ -491,8 +505,11 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
 			$cartTotal += $couponItem->getTotal();
 		}
 
+        $nonce = wp_create_nonce();
+        $returnUrl = wp_sprintf('%s?rest_route=/wc/odero/%s/verify&_wpnonce=%s', esc_attr(site_url('/')), $order->get_order_number(), $nonce);
+
         $cartTotal  = sprintf("%.2f", $cartTotal);
-        $returnUrl = $this->get_return_url( $order );
+      //  $returnUrl = $this->get_return_url( $order );
         $paymentRequest = new \Oderopay\Model\Payment\Payment();
         $paymentRequest
             ->setAmount($cartTotal)
@@ -508,20 +525,17 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
         ;
 
 		$payload = $paymentRequest->toArray();
-		$this->log('Odero Payload: '.json_encode($payload), WC_Log_Levels::INFO);
+		$this->log('Odero Payload: '.wp_json_encode($payload), WC_Log_Levels::INFO);
 
         $payment = $this->odero->payments->create($paymentRequest); //PaymentIntentResponse
 
         // Mark as on-hold (we're awaiting the cheque)
-        $order->update_status($this->get_option('status_on_process'), __( 'Awaiting cheque payment', 'woocommerce' ));
+        $order->update_status($this->get_option('status_on_process'), __( 'Awaiting cheque payment', 'wc-gateway-oderopay' ));
 
         if($payment->isSuccess()){
             //save the odero payment id
             $order->add_meta_data(self::ODERO_PAYMENT_KEY, $payment->data['paymentId']);
             $order->save();
-
-            //log the order
-            $this->log_order_details($order);
 
             return  array(
                 'result' => 'success',
@@ -531,7 +545,7 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
             wc_add_notice(  $payment->getMessage(), 'error' );
         }
 
-        $this->log(json_encode($payment->toArray()), WC_Log_Levels::INFO);
+        $this->log(wp_json_encode($payment->toArray()), WC_Log_Levels::INFO);
 
     }
 
@@ -543,20 +557,20 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
 	 */
 	public function receipt_page( $order )
     {
-		echo '<p>' . __( 'Thank you for your order, please click the button below to pay with OderoPay.', 'oderopay-gateway' ) . '</p>';
+		echo '<p>' . esc_html__( 'Thank you for your order, please click the button below to pay with OderoPay.', 'wc-gateway-oderopay' ) . '</p>';
 	}
 
     public function webhook()
     {
 		$request  = $_REQUEST;
+
         if(empty(sanitize_text_field($request['secret_key'])) || sanitize_text_field($request['secret_key']) !== $this->secret_key){
             // THE REQUEST ATTACK
-            $this->log("CALLBACK ATTACK!  " . json_encode($request), WC_Log_Levels::CRITICAL);
-            return;
+            $this->log("CALLBACK ATTACK!  " . wp_json_encode($request), WC_Log_Levels::CRITICAL);
+			die('Security check');
         }
 
-        $request = json_decode(file_get_contents('php://input'), true);
-        $this->log("RECEIVED PAYLOAD " . json_encode($request), WC_Log_Levels::NOTICE);
+        $this->log("RECEIVED PAYLOAD " . wp_json_encode($request), WC_Log_Levels::NOTICE);
         $message = $this->odero->webhooks->handle($request);
 
         switch (true) {
@@ -570,53 +584,42 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
 
                 if(empty($order)) return;
 
-                if($order->get_payment_method() !== 'oderopay') {
-                    $this->log('Callback Received but skipped');
-					return;
-				}
-
-                if ($message->getStatus() === 'SUCCESS'){
-                    //set order as paid
-                    $order->update_status($this->get_option('status_on_success'), __( 'Payment Success', 'woocommerce' ));
-                    //reduce stocks
-                    wc_reduce_stock_levels( $order->get_id() );
-                    $this->log('Order Update (Success) : '. json_encode($order), WC_Log_Levels::NOTICE);
-
-                }else{
-                    // set status failed
-                    $order->update_status($this->get_option('status_on_failed'), __( 'Payment failed', 'woocommerce' ));
-                    $this->log('Order Update (Status) :  '. $this->get_option('status_on_failed'));
-                    $this->log('Order Update (Failed) : '. json_encode($order), WC_Log_Levels::ERROR);
-                }
+                $this->update_order_by_odero_status($order, $message->getStatus());
 
                 break;
 
             default:
-                $this->log(json_encode($request), WC_Log_Levels::CRITICAL);
+                $this->log(wp_json_encode($request), WC_Log_Levels::CRITICAL);
                 return -1;
         }
 	}
 
-	/**
-	 * Handle logging the order details.
-	 */
-	public function log_order_details( WC_Order $order, $level = WC_Log_Levels::NOTICE )
-    {
-		$customer_id = $order->get_user_id();
 
-		$details = "Order Details:"
-		. PHP_EOL . 'customer id:' . $customer_id
-		. PHP_EOL . 'order id:   ' . $order->get_id()
-		. PHP_EOL . 'parent id:  ' . $order->get_parent_id()
-		. PHP_EOL . 'status:     ' . $order->get_status()
-		. PHP_EOL . 'total:      ' . $order->get_total()
-		. PHP_EOL . 'currency:   ' . $order->get_currency()
-		. PHP_EOL . 'key:        ' . $order->get_order_key()
-		. PHP_EOL . 'odero payment id : ' . $order->get_meta(self::ODERO_PAYMENT_KEY)
-		. "##############################";
+	public function update_order_by_odero_status(WC_Order $order, $status = 'SUCCESS')
+	{
+		if($order->get_payment_method() !== 'oderopay') {
+			$this->log('Callback Received but skipped');
+			return;
+		}
 
-		$this->log( $details, $level );
-	}
+        if(in_array($status, ['INITIATED'])){
+			return;
+		}
+
+		if ($status === 'SUCCESS'){
+			//set order as paid
+			$order->update_status($this->get_option('status_on_success'), esc_attr__('Payment Success', 'wc-gateway-oderopay' ));
+			//reduce stocks
+			wc_reduce_stock_levels( $order->get_id() );
+			$this->log('Order Update (Success) : '. wp_json_encode($order), WC_Log_Levels::NOTICE);
+
+		}else{
+			// set status failed
+			$order->update_status($this->get_option('status_on_failed'), esc_attr__('Payment failed', 'wc-gateway-oderopay' ));
+			$this->log('Order Update (Status) :  '. $this->get_option('status_on_failed'));
+			$this->log('Order Update (Failed) : '. wp_json_encode($order), WC_Log_Levels::ERROR);
+		}
+    }
 
 	/**
 	 * Setup constants.
@@ -651,27 +654,27 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
 
 		// Messages
 		// Error
-		define( 'ODERO_ERR_AMOUNT_MISMATCH', __( 'Amount mismatch', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_ERR_BAD_ACCESS', __( 'Bad access of page', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_ERR_BAD_SOURCE_IP', __( 'Bad source IP address', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_ERR_CONNECT_FAILED', __( 'Failed to connect to OderoPay', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_ERR_INVALID_SIGNATURE', __( 'Security signature mismatch', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_ERR_MERCHANT_ID_MISMATCH', __( 'Merchant ID mismatch', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_ERR_NO_SESSION', __( 'No saved session found for ITN transaction', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_ERR_ORDER_ID_MISSING_URL', __( 'Order ID not present in URL', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_ERR_ORDER_ID_MISMATCH', __( 'Order ID mismatch', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_ERR_ORDER_INVALID', __( 'This order ID is invalid', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_ERR_ORDER_NUMBER_MISMATCH', __( 'Order Number mismatch', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_ERR_ORDER_PROCESSED', __( 'This order has already been processed', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_ERR_PDT_FAIL', __( 'PDT query failed', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_ERR_PDT_TOKEN_MISSING', __( 'PDT token not present in URL', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_ERR_SESSIONID_MISMATCH', __( 'Session ID mismatch', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_ERR_UNKNOWN', __( 'Unkown error occurred', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_ERR_AMOUNT_MISMATCH', esc_attr__( 'Amount mismatch', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_ERR_BAD_ACCESS', esc_attr__( 'Bad access of page', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_ERR_BAD_SOURCE_IP', esc_attr__( 'Bad source IP address', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_ERR_CONNECT_FAILED', esc_attr__( 'Failed to connect to OderoPay', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_ERR_INVALID_SIGNATURE', esc_attr__( 'Security signature mismatch', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_ERR_MERCHANT_ID_MISMATCH', esc_attr__( 'Merchant ID mismatch', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_ERR_NO_SESSION', esc_attr__( 'No saved session found for ITN transaction', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_ERR_ORDER_ID_MISSING_URL', esc_attr__( 'Order ID not present in URL', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_ERR_ORDER_ID_MISMATCH', esc_attr__( 'Order ID mismatch', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_ERR_ORDER_INVALID', esc_attr__( 'This order ID is invalid', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_ERR_ORDER_NUMBER_MISMATCH', esc_attr__( 'Order Number mismatch', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_ERR_ORDER_PROCESSED', esc_attr__( 'This order has already been processed', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_ERR_PDT_FAIL', esc_attr__( 'PDT query failed', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_ERR_PDT_TOKEN_MISSING', esc_attr__( 'PDT token not present in URL', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_ERR_SESSIONID_MISMATCH', esc_attr__( 'Session ID mismatch', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_ERR_UNKNOWN', esc_attr__( 'Unkown error occurred', 'wc-gateway-oderopay' ) );
 
 		// General
-		define( 'ODERO_MSG_OK', __( 'Payment was successful', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_MSG_FAILED', __( 'Payment has failed', 'wc-gateway-oderopay' ) );
-		define( 'ODERO_MSG_PENDING', __( 'The payment is pending. Please note, you will receive another Instant Transaction Notification when the payment status changes to "Completed", or "Failed"', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_MSG_OK', esc_attr__( 'Payment was successful', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_MSG_FAILED', esc_attr__( 'Payment has failed', 'wc-gateway-oderopay' ) );
+		define( 'ODERO_MSG_PENDING', esc_attr__( 'The payment is pending. Please note, you will receive another Instant Transaction Notification when the payment status changes to "Completed", or "Failed"', 'wc-gateway-oderopay' ) );
 
 		do_action( 'woocommerce_gateway_oderopay_setup_constants' );
 	}
@@ -756,8 +759,9 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
 			set_transient( 'wc-gateway-oderopay-admin-notice-transient', 1, 1);
 
 			echo '<div class="notice notice-error is-dismissible"><p>'
-				. __( 'To use OderoPay as a payment provider, you need to fix the problems below:', 'wc-gateway-oderopay' ) . '</p>'
+				. esc_html__( 'To use OderoPay as a payment provider, you need to fix the problems below:', 'wc-gateway-oderopay' ) . '</p>'
 				. '<ul style="list-style-type: disc; list-style-position: inside; padding-left: 2em;">'
+				// phpcs:ignore  WordPress.Security.EscapeOutput.OutputNotEscaped
 				. array_reduce( $errors_to_show, function( $errors_list, $error_item ) {
 					$errors_list = $errors_list . PHP_EOL . ( '<li>' . $this->get_error_message($error_item) . '</li>' );
 					return $errors_list;
