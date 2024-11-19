@@ -3,7 +3,7 @@ Contributors: oderopay, bencagri
 Stable tag: 1.2.6
 Requires at least: 6.0
 Requires PHP: 7.2
-Tested up to: 6.6
+Tested up to: 6.7
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.en.html
 
