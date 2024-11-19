@@ -293,11 +293,18 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
         $this->log('ORDER UPDATE ON REDIRECT, ODERO PAYMENT: ' . $payment->toJSON());
         $this->update_order_by_odero_status($order, $payment->getStatus());
 
+        $this->set_order_odero_id($order, $payment->paymentId);
+
         //redirect to order
 		wp_redirect( $order->get_view_order_url() );
 		exit;
 	}
 
+	public function set_order_odero_id(WC_Order  $order, $paymentId)
+	{
+		$order->add_meta_data(self::ODERO_PAYMENT_KEY, $paymentId, true);
+		$order->save();
+    }
 
 	/**
 	 * Determine if the gateway still requires setup.
@@ -505,11 +512,9 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
 			$cartTotal += $couponItem->getTotal();
 		}
 
-        $nonce = wp_create_nonce();
-        $returnUrl = wp_sprintf('%s?rest_route=/wc/odero/%s/verify&_wpnonce=%s', esc_attr(site_url('/')), $order->get_order_number(), $nonce);
+        $returnUrl = wp_sprintf('%s?rest_route=/wc/odero/%s/verify', esc_attr(site_url('/')), $order->get_order_number());
 
         $cartTotal  = sprintf("%.2f", $cartTotal);
-      //  $returnUrl = $this->get_return_url( $order );
         $paymentRequest = new \Oderopay\Model\Payment\Payment();
         $paymentRequest
             ->setAmount($cartTotal)
@@ -534,9 +539,7 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
 
         if($payment->isSuccess()){
             //save the odero payment id
-            $order->add_meta_data(self::ODERO_PAYMENT_KEY, $payment->data['paymentId']);
-            $order->save();
-
+            $this->set_order_odero_id($order,$payment->data['paymentId'], true);
             return  array(
                 'result' => 'success',
                 'redirect' => $payment->data['url']
@@ -562,15 +565,18 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
 
     public function webhook()
     {
-		$request  = $_REQUEST;
+        $request = $_REQUEST;
+		$secret_key = sanitize_text_field($request['secret_key'] ?? "");
 
-        if(empty(sanitize_text_field($request['secret_key'])) || sanitize_text_field($request['secret_key']) !== $this->secret_key){
+        if(empty($secret_key) || $secret_key !== $this->secret_key){
             // THE REQUEST ATTACK
             $this->log("CALLBACK ATTACK!  " . wp_json_encode($request), WC_Log_Levels::CRITICAL);
 			die('Security check');
         }
 
-        $this->log("RECEIVED PAYLOAD " . wp_json_encode($request), WC_Log_Levels::NOTICE);
+		$request = json_decode(file_get_contents('php://input'), true);
+        $this->log("RECEIVED PAYLOAD: " . wp_json_encode($request));
+
         $message = $this->odero->webhooks->handle($request);
 
         switch (true) {
@@ -589,7 +595,6 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
                 break;
 
             default:
-                $this->log(wp_json_encode($request), WC_Log_Levels::CRITICAL);
                 return -1;
         }
 	}
@@ -611,13 +616,12 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
 			$order->update_status($this->get_option('status_on_success'), esc_attr__('Payment Success', 'wc-gateway-oderopay' ));
 			//reduce stocks
 			wc_reduce_stock_levels( $order->get_id() );
-			$this->log('Order Update (Success) : '. wp_json_encode($order), WC_Log_Levels::NOTICE);
+			$this->log('Order Update (Success) : '. json_encode($order), WC_Log_Levels::NOTICE);
 
 		}else{
 			// set status failed
 			$order->update_status($this->get_option('status_on_failed'), esc_attr__('Payment failed', 'wc-gateway-oderopay' ));
-			$this->log('Order Update (Status) :  '. $this->get_option('status_on_failed'));
-			$this->log('Order Update (Failed) : '. wp_json_encode($order), WC_Log_Levels::ERROR);
+			$this->log('Order Update (Failed) : '. json_encode($order), WC_Log_Levels::ERROR);
 		}
     }
 
