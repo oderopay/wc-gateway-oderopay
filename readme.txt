@@ -1,9 +1,9 @@
 === Wc Gateway Oderopay ===
 Contributors: oderopay, bencagri
-Stable tag: 1.2.6
-Requires at least: 6.0
+Stable tag: 1.3.0
+Requires at least: 6.8
 Requires PHP: 7.2
-Tested up to: 6.7
+Tested up to: 6.8.3
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.en.html
 
@@ -14,6 +14,9 @@ This is the official WooCommerce extension to receive payments using the OderoPa
 The OderoPay extension for WooCommerce enables you to accept payments including Subscriptions, Deposits & Pre-Orders via one of Romania’s most popular payment gateways.
 
 == Changelog ==
+
+1.3.0 - 2024-05-31
+Support WooCommerce 10.x
 
 1.2.4 - 2024-05-31
 Wordpress Plugin directory submission review

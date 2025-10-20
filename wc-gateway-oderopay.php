@@ -6,18 +6,18 @@
  * Author URI: http://github.com/oderopay
  * License: GPLv3
  * License URI: https://www.gnu.org/licenses/gpl-3.0.en.html
- * Version: 1.2.6
- * Requires at least: 6.0
- * Tested up to: 6.6.0
- * WC tested up to: 9.3.3
- * WC requires at least: 6.0
+ * Version: 1.3.0
+ * Requires at least: 6.8
+ * Tested up to: 6.8.3
+ * WC tested up to: 10.2.2
+ * WC requires at least: 10.0.0
  * Requires PHP: 7.2
  */
 use Automattic\WooCommerce\Blocks\Payments\PaymentMethodRegistry;
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WC_GATEWAY_ODEROPAY_VERSION', '1.2.4' );
+define( 'WC_GATEWAY_ODEROPAY_VERSION', '1.3.0' );
 define( 'WC_GATEWAY_ODEROPAY_URL', untrailingslashit( plugins_url( basename( plugin_dir_path( __FILE__ ) ), basename( __FILE__ ) ) ) );
 define( 'WC_GATEWAY_ODEROPAY_PATH', untrailingslashit( plugin_dir_path( __FILE__ ) ) );
 

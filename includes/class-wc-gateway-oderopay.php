@@ -531,6 +531,7 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
 		;
 
 		$payload = $paymentRequest->toArray();
+
 		$this->log('Odero Payload: '.wp_json_encode($payload), WC_Log_Levels::INFO);
 
 		$payment = $this->odero->payments->create($paymentRequest); //PaymentIntentResponse
@@ -546,11 +547,19 @@ class WC_Gateway_OderoPay extends WC_Payment_Gateway
 				'redirect' => $payment->data['url']
 			);
 		}else{
-			wc_add_notice(  $payment->getMessage(), 'error' );
+		    $messages =  is_array($payment->getMessage()) ? $payment->getMessage() : [$payment->getMessage()];
+            foreach($messages as $message){
+                wc_add_notice($message, 'error' );
+            }
+			throw new \Exception($message);
 		}
+
 
 		$this->log(wp_json_encode($payment->toArray()), WC_Log_Levels::INFO);
 
+		return array(
+		    'result' => 'failed'
+		);
 	}
 
 	/**
